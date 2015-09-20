@@ -1,0 +1,33 @@
+{
+  "application":{
+    "name": "Test APP",
+    "version": "1.0",
+    "command": "./init.sh",
+    "ports": [8080,80],
+    "source": "git@github.com:donrudo/cloudme_test.git",
+    "baseImage": "webserver"
+  },
+
+  "microservices": [
+    {
+      "name": "internal_mysql",
+      "image": "custom_mysql",
+      "dockerFile": "example_app/dockerfiles/mysql.df",
+      "hostname": "db.local",
+      "mount": ["./Database:/opt/db"],
+      "command": "db/start.sh",
+      "configPath": "config/db.cnf",
+      "logs": "/var/log/mysql"
+    },
+    {
+      "name": "webserver",
+      "image": "custom_httpd",
+      "dockerFile": "example_app/dockerfiles/httpd.df",
+      "hostname": "my.dot.com",
+      "mount": ["./src:/var/httpd/web"],
+      "command": "webstart.sh",
+      "configPath": "config/apache2",
+      "logs": "/var/log/httpd"
+    }
+  ]
+}
