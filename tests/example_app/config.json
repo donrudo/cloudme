@@ -12,7 +12,7 @@
     {
       "name": "internal_mysql",
       "image": "custom_mysql",
-      "dockerFile": "example_app/dockerfiles/mysql.df",
+      "dockerfile": "./mysql.df",
       "hostname": "db.local",
       "mount": ["./Database:/opt/db"],
       "command": "db/start.sh",
@@ -22,7 +22,7 @@
     {
       "name": "webserver",
       "image": "custom_httpd",
-      "dockerFile": "example_app/dockerfiles/httpd.df",
+      "dockerfile": "./httpd.df",
       "hostname": "my.dot.com",
       "mount": ["./src:/var/httpd/web"],
       "command": "webstart.sh",

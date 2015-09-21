@@ -4,11 +4,6 @@ package maestre
 
 import ( // Standard deps
 
-	"net"
-	"net/http"
-	"net/url"
-	"time"
-
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -63,86 +58,59 @@ func NewDockerClient(context string) *DockerRuntime {
 	return Docker
 }
 
-func (dr DockerRuntime) Run(cfg config.Root) error {
-	var err error
-	return err
+func (dr DockerRuntime) Run(service config.Mservices, app config.App) {
+
 }
 
-func newHTTPClient(u *url.URL, tlsConfig *tls.Config, timeout time.Duration) *http.Client {
-	httpTransport := &http.Transport{
-		TLSClientConfig: tlsConfig,
+// Verify uses the healthcheck set at the given service to put a message into the channel once it's correctly running or if an error is detected (timeouts at 30 secs)
+func (dr DockerRuntime) Verify(service config.Mservices, app config.App) {
+}
+
+func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
+	var err error
+
+	dockerBuildContextName, err := dr.CreateTar(dr.Context)
+	if err != nil {
+		dr.Debug("%s", err)
+		Error <- err
+	}
+	dockerBuildContext, err := os.Open(dockerBuildContextName)
+	if err != nil {
+		dr.Debug("%s", err)
+		Error <- err
 	}
 
-	switch u.Scheme {
-	default:
-		httpTransport.Dial = func(proto, addr string) (net.Conn, error) {
-			return net.DialTimeout(proto, addr, timeout)
-		}
-	case "unix":
-		socketPath := u.Path
-		unixDial := func(proto, addr string) (net.Conn, error) {
-			return net.DialTimeout("unix", socketPath, timeout)
-		}
-		httpTransport.Dial = unixDial
-		// Override the main URL object so the HTTP lib won't complain
-		u.Scheme = "http"
-		u.Host = "unix.sock"
-		u.Path = ""
+	dr.Debug("Building Images, base Image: %s ", app.BaseImage)
+
+	if err != nil {
+		dr.Debug("%s", err)
+		Error <- err
 	}
-	return &http.Client{Transport: httpTransport}
-}
+	defer dockerBuildContext.Close()
 
-func (dr DockerRuntime) Create(cfg config.Root) error {
-	var err error
-	return err
-}
-
-func (dr DockerRuntime) GetNewBuildImage(dockerFile string) (*DockerAPI.BuildImage, error) {
-
-	rawimage := &DockerAPI.BuildImage{
+	image := &DockerAPI.BuildImage{
 		SuppressOutput: true,
 		Remove:         true,
-		DockerfileName: dockerFile,
+		DockerfileName: service.Dockerfile,
+		Context:        dockerBuildContext,
+		RepoName:       service.Image,
+		CgroupParent:   app.Name,
 	}
 
-	return rawimage, nil
-}
-
-func (dr DockerRuntime) Build(cfg config.Root) error {
-	var err error
-
-	dr.Debug("Building Images, base Image: %s ", cfg.Application.BaseImage)
-	var i int
-	for i = 0; i < len(cfg.Microservices); i++ {
-		image, err := dr.GetNewBuildImage(cfg.Microservices[i].DockerFile)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		dockerBuildContext, err := os.Open(dr.Context + ".tar")
-		defer dockerBuildContext.Close()
-		if err != nil {
-			dr.Debug("%s", err)
-		}
-		image.Context = dockerBuildContext
-		image.RepoName = cfg.Microservices[i].Image
-		image.CgroupParent = cfg.Application.Name
-
-		reader, err := dr.Api.BuildImage(image)
-		if err != nil {
-			dr.Debug("%s", err)
+	reader, err := dr.Api.BuildImage(image)
+	defer dockerBuildContext.Close()
+	if err != nil {
+		dr.Debug("%s", err)
+		Error <- err
+	} else {
+		if b, err := ioutil.ReadAll(reader); err == nil {
+			dr.Debug("Build output: %s", string(b))
 		} else {
-			if b, err := ioutil.ReadAll(reader); err == nil {
-				dr.Debug("Build output: %s", string(b))
-			} else {
-				fmt.Println(err)
-			}
+			fmt.Println(err)
+			Error <- err
 		}
 	}
-	return err
 }
 
-func (dr DockerRuntime) Delete(cfg config.Root) error {
-	var err error
-	return err
+func (dr DockerRuntime) Delete(service config.Mservices, app config.App) {
 }

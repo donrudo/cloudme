@@ -21,7 +21,6 @@ package main
 import ( // standard deps
 	"flag"
 	"fmt"
-	"log"
 	"os"
 )
 
@@ -37,23 +36,6 @@ var (
 	configFile = flag.String("config", "", "Path to the config file to use")
 	secrets    = flag.String("secret", "", "Path to the access config file to use")
 )
-
-// EvaluateErr evaluates if an error happens, and decides if terminates or just logs the error returns false if OK
-func EvaluateErr(emsg error, logit bool, terminate bool) bool {
-	if emsg != nil {
-		fmt.Println(emsg)
-
-		if logit == true {
-			log.Println(emsg)
-		}
-		if terminate == true {
-			os.Exit(1)
-		}
-
-		return true
-	}
-	return false
-}
 
 // Init Validates the basic params cmd is empty then fails then it will initialize the runtime to be used (docker by default)
 func Init() {
@@ -78,22 +60,28 @@ func Init() {
 }
 
 func main() {
+	var exitCode int
+	var err error
 	Init()
 
 	switch *command {
-	case "build":
-		fmt.Println("Building Application:   " + maestre.Config.Application.Name)
+	case "deploy":
+		fmt.Println("Deploying Application:   " + maestre.Config.Application.Name)
 		fmt.Println(" - Application Version: " + maestre.Config.Application.Version)
 
-		_, err := maestre.Build()
-		EvaluateErr(err, true, false)
+		exitCode, err = maestre.Deploy()
 
-	case "deploy":
+	case "build":
+		exitCode, err = maestre.Build()
+
 	case "create":
 	case "cleanup":
 	case "getlogs":
 	default:
 		fmt.Println("Unsupported command: " + *command)
 	}
-
+	if err != nil {
+		fmt.Println(err)
+	}
+	os.Exit(exitCode)
 }

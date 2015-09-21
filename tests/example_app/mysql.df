@@ -1,0 +1,4 @@
+FROM mysql:5.7
+  MAINTAINER carlosalbertomr@gmail.com
+
+RUN ls -l

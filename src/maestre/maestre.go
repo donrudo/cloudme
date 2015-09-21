@@ -8,17 +8,20 @@ import (
 	. "github.com/tj/go-debug"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Runtime interface {
-	Run(config.Root) error
-	Create(config.Root) error
-	Build(config.Root) error
-	Delete(config.Root) error
+	Run(config.Mservices, config.App)
+	Verify(config.Mservices, config.App)
+	Build(config.Mservices, config.App)
+	Delete(config.Mservices, config.App)
 }
 
 var (
 	configPath string
+	Error      chan error
+	Output     chan error
 	debug      = Debug("Runtime Maestre")
 	Rt         Runtime
 	driver     = "docker"
@@ -26,6 +29,8 @@ var (
 )
 
 func Init(runtime string, configFile string) error {
+	Error = make(chan error)
+	Output = make(chan error)
 	cfg, err := loadConfig(configFile)
 	if err != nil {
 		return err
@@ -58,14 +63,36 @@ func loadConfig(Path string) (*config.Root, error) {
 		return cfg, err
 	}
 
+	debug("loaded configuration file")
 	return cfg, nil
 }
 
-func Build() (uint32, error) {
-	err := Rt.Build(*Config)
-	if err != nil {
-		return 1, err
+func Build() (int, error) {
+	var i int
+	for i = 0; i < len(Config.Microservices); i++ {
+		go Rt.Build(Config.Microservices[i], Config.Application)
+	}
+	return 0, nil
+}
+
+func Deploy() (int, error) {
+	var i int
+	for i = 0; i < len(Config.Microservices); i++ {
+		go Rt.Build(Config.Microservices[i], Config.Application)
+		go Rt.Run(Config.Microservices[i], Config.Application)
+		go Rt.Verify(Config.Microservices[i], Config.Application)
 	}
 
+	var isDone bool
+	for isDone = false; isDone == false; isDone = false {
+		select {
+		case errs := <-Error:
+			isDone = true
+			debug("%s", errs)
+		default:
+			time.Sleep(time.Second * 1)
+		}
+	}
+	close(Error)
 	return 0, nil
 }

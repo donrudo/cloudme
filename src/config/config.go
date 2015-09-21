@@ -14,7 +14,7 @@ type App struct {
 type Mservices struct {
 	Name       string
 	Image      string
-	DockerFile string
+	Dockerfile string
 	Hostname   string
 	Mount      []string
 	Command    string

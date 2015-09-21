@@ -1,0 +1,4 @@
+FROM httpd:2.4
+  MAINTAINER carlosalbertomr@gmail.com
+
+RUN addgroup company
