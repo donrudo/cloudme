@@ -18,9 +18,13 @@ BUILD
 USAGE
 =====
   If you want to enable the debugging you can set an environment variable ``DEBUG=*`` and it will show all the output.
-
- package main
-
+``
+  cloudme -cmd deploy -config tests/example_app/config.json
+``  
+or
+``
+  DEBUG=* cloudme -cmd deploy -config tests/example_app/config.json
+``
 //  Pre warming steps:
 //   1. Validate config file (maestre)
 //   2. Dockerclient library requires that the app folder to be converted to .tar for the building process.
