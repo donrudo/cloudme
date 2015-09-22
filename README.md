@@ -12,6 +12,7 @@ BUILD
   I use gb [http://getgb.io/] for the building process, and the current process I use to build the project is:
 ```
     cd cloudme_src/
+    gb vendor restore
     gb build cloudme 
 ```
 
