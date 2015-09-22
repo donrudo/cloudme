@@ -8,7 +8,8 @@ import (
 	. "github.com/tj/go-debug"
 	"os"
 	"path/filepath"
-	"time"
+	"sync"
+	//"time"
 )
 
 type Runtime interface {
@@ -20,17 +21,17 @@ type Runtime interface {
 
 var (
 	configPath string
-	Error      chan error
-	Output     chan error
-	debug      = Debug("Runtime Maestre")
-	Rt         Runtime
-	driver     = "docker"
-	Config     *config.Root
+	//	Error      chan error
+	//	Output     chan error
+	debug  = Debug("Runtime Maestre")
+	Rt     Runtime
+	driver = "docker"
+	Config *config.Root
 )
 
 func Init(runtime string, configFile string) error {
-	Error = make(chan error)
-	Output = make(chan error)
+	//Error = make(chan error)
+	//Output = make(chan error)
 	cfg, err := loadConfig(configFile)
 	if err != nil {
 		return err
@@ -77,22 +78,31 @@ func Build() (int, error) {
 
 func Deploy() (int, error) {
 	var i int
+	var wg sync.WaitGroup
 	for i = 0; i < len(Config.Microservices); i++ {
-		go Rt.Build(Config.Microservices[i], Config.Application)
-		go Rt.Run(Config.Microservices[i], Config.Application)
-		go Rt.Verify(Config.Microservices[i], Config.Application)
+		wg.Add(3)
+		go build(i, &wg)
+		go run(i, &wg)
+		go verify(i, &wg)
 	}
 
-	var isDone bool
-	for isDone = false; isDone == false; isDone = false {
-		select {
-		case errs := <-Error:
-			isDone = true
-			debug("%s", errs)
-		default:
-			time.Sleep(time.Second * 1)
-		}
-	}
-	close(Error)
+	wg.Wait()
 	return 0, nil
+}
+
+func build(i int, wg *sync.WaitGroup) {
+	Rt.Build(Config.Microservices[i], Config.Application)
+	wg.Done()
+	debug("done Building")
+}
+func verify(i int, wg *sync.WaitGroup) {
+	Rt.Verify(Config.Microservices[i], Config.Application)
+	wg.Done()
+	debug("done Verify")
+}
+func run(i int, wg *sync.WaitGroup) {
+	Rt.Run(Config.Microservices[i], Config.Application)
+	wg.Done()
+	debug("done Run")
+
 }

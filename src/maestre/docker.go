@@ -20,15 +20,15 @@ import ( // internal or vendor deps
 type DockerRuntime struct {
 	Runtime Runtime
 	Context string
-	//authConfig DockerAPI.AuthConfig
-	Api   *DockerAPI.DockerClient
-	Debug dbg.DebugFunction
+	Api     *DockerAPI.DockerClient
+	Debug   dbg.DebugFunction
 }
 
 func NewDockerClient(context string) *DockerRuntime {
 	Docker := new(DockerRuntime)
 	Docker.Context = context
 	Docker.Debug = dbg.Debug("Docker Runtime")
+	Docker.Debug("Configuring Docker Runtime")
 	tlsConfig := &tls.Config{}
 	var err error
 
@@ -55,41 +55,39 @@ func NewDockerClient(context string) *DockerRuntime {
 		fmt.Println(err)
 	}
 
+	Docker.Debug("Ready Docker Runtime")
 	return Docker
 }
 
 func (dr DockerRuntime) Run(service config.Mservices, app config.App) {
-
+	dr.Debug("Wait for Build to Run container: %s", service.Name)
 }
 
 // Verify uses the healthcheck set at the given service to put a message into the channel once it's correctly running or if an error is detected (timeouts at 30 secs)
 func (dr DockerRuntime) Verify(service config.Mservices, app config.App) {
+	dr.Debug("Waiting to get a healthy answer from container: %s", service.Name)
 }
 
 func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
-	var err error
-
 	dockerBuildContextName, err := dr.CreateTar(dr.Context)
 	if err != nil {
 		dr.Debug("%s", err)
-		Error <- err
+		fmt.Println(err)
 	}
 	dockerBuildContext, err := os.Open(dockerBuildContextName)
 	if err != nil {
 		dr.Debug("%s", err)
-		Error <- err
+		fmt.Println(err)
 	}
 
-	dr.Debug("Building Images, base Image: %s ", app.BaseImage)
-
-	if err != nil {
-		dr.Debug("%s", err)
-		Error <- err
+	config := &DockerAPI.ConfigFile{
+		Configs: map[string]DockerAPI.AuthConfig{
+			"": DockerAPI.AuthConfig{}},
 	}
-	defer dockerBuildContext.Close()
 
 	image := &DockerAPI.BuildImage{
-		SuppressOutput: true,
+		Config:         config,
+		SuppressOutput: false,
 		Remove:         true,
 		DockerfileName: service.Dockerfile,
 		Context:        dockerBuildContext,
@@ -97,17 +95,16 @@ func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
 		CgroupParent:   app.Name,
 	}
 
+	dr.Debug("Building Image: %s ", service.Name)
 	reader, err := dr.Api.BuildImage(image)
 	defer dockerBuildContext.Close()
 	if err != nil {
 		dr.Debug("%s", err)
-		Error <- err
 	} else {
 		if b, err := ioutil.ReadAll(reader); err == nil {
 			dr.Debug("Build output: %s", string(b))
 		} else {
 			fmt.Println(err)
-			Error <- err
 		}
 	}
 }
