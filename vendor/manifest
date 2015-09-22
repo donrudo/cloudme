@@ -1,0 +1,56 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/docker/docker/pkg/units",
+			"repository": "https://github.com/docker/docker",
+			"revision": "acdc0f82c03133ddddd36ec8b12ef13b68035eda",
+			"branch": "master",
+			"path": "/pkg/units"
+		},
+		{
+			"importpath": "github.com/samalba/dockerclient",
+			"repository": "https://github.com/samalba/dockerclient",
+			"revision": "cfb489c624b635251a93e74e1e90eb0959c5367f",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/stackforge/golang-client",
+			"repository": "https://github.com/stackforge/golang-client",
+			"revision": "9de84b3c5d13b4dcc00e0ef3c0392e0abf3078ff",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/stretchr/objx",
+			"repository": "https://github.com/stretchr/objx",
+			"revision": "cbeaeb16a013161a98496fad62933b1d21786672",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/stretchr/testify/assert",
+			"repository": "https://github.com/stretchr/testify",
+			"revision": "b8dc1cecf15bdaf1988d9e87aa7cd98d899a06d6",
+			"branch": "master",
+			"path": "/assert"
+		},
+		{
+			"importpath": "github.com/stretchr/testify/mock",
+			"repository": "https://github.com/stretchr/testify",
+			"revision": "b8dc1cecf15bdaf1988d9e87aa7cd98d899a06d6",
+			"branch": "master",
+			"path": "/mock"
+		},
+		{
+			"importpath": "github.com/tj/go-debug",
+			"repository": "https://github.com/tj/go-debug",
+			"revision": "ff4a55a20a86994118644bbddc6a216da193cc13",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/visionmedia/go-debug",
+			"repository": "https://github.com/visionmedia/go-debug",
+			"revision": "ff4a55a20a86994118644bbddc6a216da193cc13",
+			"branch": "master"
+		}
+	]
+}
