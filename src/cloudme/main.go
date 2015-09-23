@@ -72,6 +72,8 @@ func main() {
 		exitCode, err = maestre.Deploy()
 
 	case "build":
+		fmt.Println("Building Application:   " + maestre.Config.Application.Name)
+		fmt.Println(" - Application Version: " + maestre.Config.Application.Version)
 		exitCode, err = maestre.Build()
 
 	case "create":

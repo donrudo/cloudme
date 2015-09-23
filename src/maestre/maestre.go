@@ -69,10 +69,13 @@ func loadConfig(Path string) (*config.Root, error) {
 }
 
 func Build() (int, error) {
+	var wg sync.WaitGroup
 	var i int
 	for i = 0; i < len(Config.Microservices); i++ {
-		go Rt.Build(Config.Microservices[i], Config.Application)
+		wg.Add(1)
+		go build(i, &wg)
 	}
+	wg.Wait()
 	return 0, nil
 }
 
