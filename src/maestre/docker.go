@@ -29,7 +29,7 @@ type DockerRuntime struct {
 	Verified map[string]chan bool
 }
 
-func NewDockerClient(context string) *DockerRuntime {
+func NewDockerClient(context string) (*DockerRuntime, error) {
 	Docker := new(DockerRuntime)
 	Docker.Context = context
 	Docker.Debug = dbg.Debug("Docker Runtime")
@@ -60,14 +60,17 @@ func NewDockerClient(context string) *DockerRuntime {
 
 	if os.Getenv("DOCKER_HOST") != "" {
 		Docker.Api, err = DockerAPI.NewDockerClient(os.Getenv("DOCKER_HOST"), tlsConfig)
-		Docker.Debug("Ready Docker Runtime")
 		if err != nil {
 			fmt.Println(err)
-			return nil
+			return nil, err
 		}
+		Docker.Debug("Ready Docker Runtime")
+	} else {
+		err := fmt.Errorf("DOCKER_HOST empty or not set")
+		Docker.Debug("FATAL: %s", err)
+		return nil, err
 	}
-
-	return Docker
+	return Docker, nil
 }
 
 func (dr DockerRuntime) Run(service config.Mservices, app config.App) {

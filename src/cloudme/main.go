@@ -60,9 +60,10 @@ func Init() {
 }
 
 func main() {
+	Init()
+
 	var exitCode int
 	var err error
-	Init()
 
 	switch *command {
 	case "deploy":

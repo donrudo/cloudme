@@ -5,6 +5,7 @@ package maestre
 import (
 	"config"
 	"encoding/json"
+	"fmt"
 	. "github.com/tj/go-debug"
 	"os"
 	"path/filepath"
@@ -41,7 +42,11 @@ func Init(runtime string, configFile string) error {
 	switch driver {
 	case "docker":
 		debug("Docker Runtime Enabled")
-		Rt = NewDockerClient(configPath)
+		Rt, err = NewDockerClient(configPath)
+		if err != nil {
+			err = fmt.Errorf(" Error on DockerRuntime driver!: %s", err)
+			return err
+		}
 	case "rkt":
 		//not yet supported
 		// runtime = new(RktRuntime)
