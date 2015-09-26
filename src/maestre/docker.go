@@ -17,6 +17,10 @@ import ( // internal or vendor deps
 	dbg "github.com/tj/go-debug"
 )
 
+type RoutineResult struct {
+	Results map[string]chan bool
+}
+
 type DockerRuntime struct {
 	Runtime Runtime
 	Context string
@@ -24,9 +28,9 @@ type DockerRuntime struct {
 	Debug   dbg.DebugFunction
 
 	// Builded instead of Built to be less confusing with "Build" function
-	Builded  map[string]chan bool
-	Started  map[string]chan bool
-	Verified map[string]chan bool
+	Builded  RoutineResult
+	Started  RoutineResult
+	Verified RoutineResult
 }
 
 func NewDockerClient(context string) (*DockerRuntime, error) {
@@ -35,9 +39,9 @@ func NewDockerClient(context string) (*DockerRuntime, error) {
 	Docker.Debug = dbg.Debug("Docker Runtime")
 	Docker.Debug("Configuring Docker Runtime")
 	tlsConfig := &tls.Config{}
-	Docker.Builded = make(map[string]chan bool)
-	Docker.Started = make(map[string]chan bool)
-	Docker.Verified = make(map[string]chan bool)
+	Docker.Builded.Results = make(map[string]chan bool)
+	Docker.Started.Results = make(map[string]chan bool)
+	Docker.Verified.Results = make(map[string]chan bool)
 	var err error
 
 	if os.Getenv("DOCKER_TLS_VERIFY") != "" && os.Getenv("DOCKER_TLS_VERIFY") != "0" {
@@ -73,29 +77,20 @@ func NewDockerClient(context string) (*DockerRuntime, error) {
 	return Docker, nil
 }
 
+// Run a container with the given configuration as soon as it gets a true value from the Builded channel.
 func (dr DockerRuntime) Run(service config.Mservices, app config.App) {
-	dr.Started[service.Name] = make(chan bool)
-	for dr.Builded[service.Image] == nil {
+	dr.Started.Results[service.Name] = make(chan bool)
+	for dr.Builded.Results[service.Image] == nil {
 		time.Sleep(500 * time.Millisecond)
 	}
+
 	dr.Debug("Wait for Build to Run container: %s", service.Name)
-	done := false
-	BuildOk := false
-	for !done {
-		//wait until a message is received from the Builded[service.Image] channel
-		select {
-		case BuildOk = <-dr.Builded[service.Image]:
-			done = true
-		default:
-			time.Sleep(500 * time.Millisecond)
-			dr.Debug("RUN - waiting for Build(%s) to finish", service.Image)
-			done = false
-		}
-	}
+	dbgmsg := fmt.Sprintf("RUN - waiting for Build(%s) to finish", service.Image)
+	BuildOk := dr.Builded.WaitForResult(service.Image, dr.Debug, dbgmsg)
 
 	if !BuildOk {
 		dr.Debug("RUN - Build(%s) failed", service.Image)
-		dr.Started[service.Name] <- false
+		dr.Started.Results[service.Name] <- false
 		return
 	}
 }
@@ -106,19 +101,19 @@ func (dr DockerRuntime) Verify(service config.Mservices, app config.App) {
 }
 
 func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
-	dr.Builded[service.Image] = make(chan bool)
+	dr.Builded.Results[service.Image] = make(chan bool)
 	dockerBuildContextName, err := dr.CreateTar(dr.Context)
 	if err != nil {
 		dr.Debug("%s", err)
 		fmt.Println(err)
-		dr.Builded[service.Image] <- false
+		dr.Builded.Results[service.Image] <- false
 		return
 	}
 	dockerBuildContext, err := os.Open(dockerBuildContextName)
 	if err != nil {
 		dr.Debug("%s", err)
 		fmt.Println(err)
-		dr.Builded[service.Image] <- false
+		dr.Builded.Results[service.Image] <- false
 		return
 	}
 
@@ -145,15 +140,33 @@ func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
 	} else {
 		if b, err := ioutil.ReadAll(reader); err == nil {
 			dr.Debug("Build output: %s", string(b))
-			dr.Builded[service.Image] <- true
+			dr.Builded.Results[service.Image] <- true
 			return
 		} else {
 			fmt.Println(err)
-			dr.Builded[service.Image] <- false
+			dr.Builded.Results[service.Image] <- false
 			return
 		}
 	}
 }
 
 func (dr DockerRuntime) Delete(service config.Mservices, app config.App) {
+}
+
+func (this RoutineResult) WaitForResult(channel string, debugfunc dbg.DebugFunction, debugmsg string) bool {
+	done := false
+	result := false
+	for !done {
+		//wait until a message is received from the Builded[service.Image] channel
+		select {
+		case result = <-this.Results[channel]:
+			done = true
+		default:
+			debugfunc(debugmsg)
+			debugfunc("  using %s", channel)
+			time.Sleep(500 * time.Millisecond)
+			done = false
+		}
+	}
+	return result
 }
