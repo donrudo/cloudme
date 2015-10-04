@@ -79,7 +79,10 @@ func NewDockerClient(context string) (*DockerRuntime, error) {
 
 // Run a container with the given configuration as soon as it gets a true value from the Builded channel.
 func (dr DockerRuntime) Run(service config.Mservices, app config.App) {
+	// Waits until the build process is began
+	// TODO: add timeout, maybe the configuration did not required to re-build the images.
 	dr.Started.Results[service.Name] = make(chan bool)
+	defer close(dr.Started.Results[service.Name])
 	for dr.Builded.Results[service.Image] == nil {
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -93,15 +96,42 @@ func (dr DockerRuntime) Run(service config.Mservices, app config.App) {
 		dr.Started.Results[service.Name] <- false
 		return
 	}
+
+	// TODO: implement RUN process:
+	// -- 1. Get script to execute (clone or pull if is a github repo)
+	// -- 2. Delete old container version (causes downtime)
+	// -- 3. Run the new container version
+	dr.Debug("RUN - Build(%s) succeed, Starting the container %s now!", service.Image, service.Name)
+	dr.Started.Results[service.Name] <- true
+	return
 }
 
 // Verify uses the healthcheck set at the given service to put a message into the channel once it's correctly running or if an error is detected (timeouts at 30 secs)
 func (dr DockerRuntime) Verify(service config.Mservices, app config.App) {
+	dr.Verified.Results[service.Name] = make(chan bool)
+	defer close(dr.Verified.Results[service.Name])
 	dr.Debug("Waiting to get a healthy answer from container: %s", service.Name)
+	dbgmsg := fmt.Sprintf("VERIFY - waiting for Run(%s) to finish", service.Name)
+	StartedOk := dr.Started.WaitForResult(service.Name, dr.Debug, dbgmsg)
+
+	if !StartedOk {
+		dr.Debug("Verify - Run(%s) failed", service.Image)
+		dr.Verified.Results[service.Name] <- false
+		return
+	}
+
+	// TODO: implement Verify process HERE.
+	dr.Debug("Verify - Run(%s) Succeed, Verifying healthcheck now!", service.Name)
+	dr.Verified.Results[service.Name] <- true
+	return
 }
 
+// Build the docker images to be used, when finish puts a bool value into the Results channel
 func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
 	dr.Builded.Results[service.Image] = make(chan bool)
+	defer close(dr.Builded.Results[service.Image])
+
+	// dockerclient lib relies on a tar file to be used as context, we only put docker files and configurations there.
 	dockerBuildContextName, err := dr.CreateTar(dr.Context)
 	if err != nil {
 		dr.Debug("%s", err)
@@ -116,7 +146,9 @@ func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
 		dr.Builded.Results[service.Image] <- false
 		return
 	}
+	// Finishes tar context creation
 
+	// TODO: Implement AuthConfig for docker registry repos
 	config := &DockerAPI.ConfigFile{
 		Configs: map[string]DockerAPI.AuthConfig{
 			"": DockerAPI.AuthConfig{}},
@@ -132,12 +164,14 @@ func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
 		CgroupParent:   app.Name,
 	}
 
+	// Builds the Image with the given configuration
 	dr.Debug("Building Image: %s ", service.Name)
 	reader, err := dr.Api.BuildImage(image)
 	defer dockerBuildContext.Close()
 	if err != nil {
 		dr.Debug("%s", err)
 	} else {
+		// When correctly built, we are showing the output at debug, then put a message at the channel
 		if b, err := ioutil.ReadAll(reader); err == nil {
 			dr.Debug("Build output: %s", string(b))
 			dr.Builded.Results[service.Image] <- true
@@ -150,14 +184,16 @@ func (dr DockerRuntime) Build(service config.Mservices, app config.App) {
 	}
 }
 
+// Delete the container related to the given service,
 func (dr DockerRuntime) Delete(service config.Mservices, app config.App) {
 }
 
+//WaitForResult waits until a message is received from the given channel and closes it.
 func (this RoutineResult) WaitForResult(channel string, debugfunc dbg.DebugFunction, debugmsg string) bool {
 	done := false
 	result := false
 	for !done {
-		//wait until a message is received from the Builded[service.Image] channel
+		//wait until a message is received from the Results[channel]
 		select {
 		case result = <-this.Results[channel]:
 			done = true
